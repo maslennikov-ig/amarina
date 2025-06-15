@@ -1,0 +1,18 @@
+{
+  "name": "amocrm-chat-proxy",
+  "version": "1.0.1",
+  "description": "Full AmoCRM Chat API Proxy for n8n and other platforms",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel",
+    "test": "node test.js"
+  },
+  "keywords": ["amocrm", "chat", "api", "proxy", "n8n"],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "@vercel/node": "^3.0.0"
+  }
+}

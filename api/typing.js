@@ -27,7 +27,7 @@ export default async function handler(req, res) {
       sender
     };
     
-    const path = `/v2/origin/custom/${tokenData.scope_id}/typing`;
+    const path = `/v2/origin/custom/${tokenData.channel_id}/typing`;
     const headers = createAmoCrmHeaders(requestBody, tokenData.secret_key, path);
     
     log('Sending typing indicator', { conversation_id, sender_id: sender.id });

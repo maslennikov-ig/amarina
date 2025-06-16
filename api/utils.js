@@ -1,56 +1,67 @@
-// api/utils.js - Исправленная версия с современным crypto
+// api/utils.js - Упрощенная версия без сложного шифрования
 
 const crypto = require('crypto');
 
-const ENCRYPTION_KEY = 'amocrm-proxy-secret-key-32chars!'; // 32 chars
-const ALGORITHM = 'aes-256-cbc';
+const SECRET_SALT = 'amocrm-proxy-secret-2025';
 
-// Создание stateless токена (содержит всю информацию)
+// Создание простого подписанного токена
 function createStatelessToken(data) {
-  const payload = {
-    ...data,
-    created: Date.now(),
-    expires: Date.now() + (24 * 60 * 60 * 1000) // 24 часа
-  };
-  
   try {
+    const payload = {
+      ...data,
+      created: Date.now(),
+      expires: Date.now() + (24 * 60 * 60 * 1000) // 24 часа
+    };
+    
+    // Простое кодирование в base64
     const payloadString = JSON.stringify(payload);
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher('aes256', ENCRYPTION_KEY);
+    const encodedPayload = Buffer.from(payloadString).toString('base64');
     
-    let encrypted = cipher.update(payloadString, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
+    // Создаем подпись для проверки целостности
+    const signature = crypto
+      .createHmac('sha256', SECRET_SALT)
+      .update(encodedPayload)
+      .digest('hex');
     
-    // Объединяем IV и зашифрованные данные
-    const combined = iv.toString('hex') + ':' + encrypted;
-    return Buffer.from(combined).toString('base64');
+    // Объединяем payload и подпись
+    const token = encodedPayload + '.' + signature;
+    
+    return token;
   } catch (error) {
     console.error('Token creation error:', error);
-    throw new Error('Failed to create token');
+    throw new Error(`Failed to create token: ${error.message}`);
   }
 }
 
-// Расшифровка stateless токена
+// Расшифровка простого токена
 function decodeStatelessToken(token) {
   try {
-    const combined = Buffer.from(token, 'base64').toString('utf8');
-    const [ivHex, encrypted] = combined.split(':');
+    const [encodedPayload, signature] = token.split('.');
     
-    if (!ivHex || !encrypted) {
-      return { valid: false, error: 'Invalid token format - missing parts' };
+    if (!encodedPayload || !signature) {
+      return { valid: false, error: 'Invalid token format - missing signature' };
     }
     
-    const decipher = crypto.createDecipher('aes256', ENCRYPTION_KEY);
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
+    // Проверяем подпись
+    const expectedSignature = crypto
+      .createHmac('sha256', SECRET_SALT)
+      .update(encodedPayload)
+      .digest('hex');
     
-    const payload = JSON.parse(decrypted);
+    if (signature !== expectedSignature) {
+      return { valid: false, error: 'Invalid token signature' };
+    }
+    
+    // Декодируем payload
+    const payloadString = Buffer.from(encodedPayload, 'base64').toString('utf8');
+    const payload = JSON.parse(payloadString);
     
     // Проверяем срок действия
     if (payload.expires < Date.now()) {
       return { 
         valid: false, 
-        error: `Token expired at ${new Date(payload.expires).toISOString()}` 
+        error: `Token expired at ${new Date(payload.expires).toISOString()}`,
+        expired_ago_minutes: Math.floor((Date.now() - payload.expires) / (1000 * 60))
       };
     }
     
@@ -59,7 +70,7 @@ function decodeStatelessToken(token) {
     console.error('Token decode error:', error);
     return { 
       valid: false, 
-      error: `Invalid token: ${error.message}` 
+      error: `Token decode failed: ${error.message}` 
     };
   }
 }
@@ -98,7 +109,7 @@ function createAmoCrmHeaders(body, secret, path, method = 'POST') {
   };
 }
 
-// Валидация токена (stateless)
+// Валидация токена
 function validateToken(token) {
   if (!token) {
     return { valid: false, error: 'Token is required' };

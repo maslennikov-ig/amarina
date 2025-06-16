@@ -1,6 +1,9 @@
-// api/utils.js - Исправленная версия с JWT-подобными токенами
+// api/utils.js - Исправленная версия с современным crypto
 
 const crypto = require('crypto');
+
+const ENCRYPTION_KEY = 'amocrm-proxy-secret-key-32chars!'; // 32 chars
+const ALGORITHM = 'aes-256-cbc';
 
 // Создание stateless токена (содержит всю информацию)
 function createStatelessToken(data) {
@@ -10,20 +13,34 @@ function createStatelessToken(data) {
     expires: Date.now() + (24 * 60 * 60 * 1000) // 24 часа
   };
   
-  // Простое шифрование (в продакшене используйте JWT)
-  const payloadString = JSON.stringify(payload);
-  const cipher = crypto.createCipher('aes-256-cbc', 'amocrm-proxy-secret-key');
-  let encrypted = cipher.update(payloadString, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  
-  return Buffer.from(encrypted).toString('base64');
+  try {
+    const payloadString = JSON.stringify(payload);
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipher('aes256', ENCRYPTION_KEY);
+    
+    let encrypted = cipher.update(payloadString, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    
+    // Объединяем IV и зашифрованные данные
+    const combined = iv.toString('hex') + ':' + encrypted;
+    return Buffer.from(combined).toString('base64');
+  } catch (error) {
+    console.error('Token creation error:', error);
+    throw new Error('Failed to create token');
+  }
 }
 
 // Расшифровка stateless токена
 function decodeStatelessToken(token) {
   try {
-    const encrypted = Buffer.from(token, 'base64').toString('utf8');
-    const decipher = crypto.createDecipher('aes-256-cbc', 'amocrm-proxy-secret-key');
+    const combined = Buffer.from(token, 'base64').toString('utf8');
+    const [ivHex, encrypted] = combined.split(':');
+    
+    if (!ivHex || !encrypted) {
+      return { valid: false, error: 'Invalid token format - missing parts' };
+    }
+    
+    const decipher = crypto.createDecipher('aes256', ENCRYPTION_KEY);
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     
@@ -31,12 +48,19 @@ function decodeStatelessToken(token) {
     
     // Проверяем срок действия
     if (payload.expires < Date.now()) {
-      return { valid: false, error: 'Token expired. Please get a new token.' };
+      return { 
+        valid: false, 
+        error: `Token expired at ${new Date(payload.expires).toISOString()}` 
+      };
     }
     
     return { valid: true, data: payload };
   } catch (error) {
-    return { valid: false, error: 'Invalid token format' };
+    console.error('Token decode error:', error);
+    return { 
+      valid: false, 
+      error: `Invalid token: ${error.message}` 
+    };
   }
 }
 

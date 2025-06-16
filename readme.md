@@ -1,6 +1,7 @@
 # 🚀 AmoCRM Chat API Proxy
 
 > Полнофункциональный прокси-сервис для работы с AmoCRM Chat API через простой REST интерфейс
+https://amarina-cyan.vercel.app/
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/maslennikov-ig/amarina)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

@@ -69,7 +69,7 @@ function createAmoCrmHeaders(body, secret, path, method = 'POST') {
   return {
     'Date': date,
     'Content-Type': contentType,
-    'Content-MD-1': contentMd5,
+    'Content-MD5': contentMd5,
     'X-Signature': signature
   };
 }

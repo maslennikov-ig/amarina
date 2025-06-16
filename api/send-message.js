@@ -1,4 +1,5 @@
-const crypto = require('crypto');
+// api/send-message.js - Stateless версия
+
 const { createAmoCrmHeaders, validateToken, handleAmoCrmResponse, log } = require('./utils');
 
 export default async function handler(req, res) {
@@ -50,12 +51,13 @@ export default async function handler(req, res) {
     const path = `/v2/origin/custom/${tokenData.scope_id}`;
     const headers = createAmoCrmHeaders(requestBody, tokenData.secret_key, path, 'POST');
     
-    log('Sending message with new signature scheme', { 
+    log('Sending message with stateless token', { 
       conversation_id, 
       msgid, 
       message_type: message.type,
       silent,
-      signature_preview: headers['X-Signature'].substr(0, 8) + '...'
+      signature_preview: headers['X-Signature'].substr(0, 8) + '...',
+      token_valid_until: new Date(tokenData.expires).toISOString()
     });
     
     // Запрос к AmoCRM с новой схемой подписи
@@ -68,7 +70,7 @@ export default async function handler(req, res) {
     const result = await handleAmoCrmResponse(response);
     
     if (result.success) {
-      log('Message sent successfully', { 
+      log('Message sent successfully with stateless token', { 
         msgid, 
         amocrm_msgid: result.data.new_message?.msgid,
         response_status: result.status
@@ -79,10 +81,11 @@ export default async function handler(req, res) {
         amocrm_response: result.data,
         message_id: result.data.new_message?.msgid || msgid,
         our_msgid: msgid,
-        signature_scheme: 'new'
+        signature_scheme: 'new',
+        token_type: 'stateless'
       });
     } else {
-      log('Message send failed', { 
+      log('Message send failed with stateless token', { 
         ...result, 
         msgid,
         headers_sent: headers 

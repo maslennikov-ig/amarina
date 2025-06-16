@@ -1,5 +1,6 @@
-const crypto = require('crypto');
-const { createAmoCrmHeaders, handleAmoCrmResponse, log } = require('./utils');
+// api/get-token.js - Stateless версия
+
+const { createStatelessToken, createAmoCrmHeaders, handleAmoCrmResponse, log } = require('./utils');
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -25,7 +26,7 @@ export default async function handler(req, res) {
     const path = `/v2/origin/custom/${channel_id}/connect`;
     const headers = createAmoCrmHeaders(requestBody, secret_key, path, 'POST');
     
-    log('Getting token with new signature scheme', { 
+    log('Getting token with stateless approach', { 
       channel_id, 
       account_id, 
       title,
@@ -51,22 +52,19 @@ export default async function handler(req, res) {
     }
     
     if (result.data.scope_id) {
-      // Генерируем временный токен
-      const token = crypto.randomBytes(32).toString('hex');
-      
-      // Сохраняем данные
-      global.tokenStore.set(token, {
+      // Создаем stateless токен со всей необходимой информацией
+      const tokenData = {
         scope_id: result.data.scope_id,
         secret_key,
         channel_id,
         account_id,
-        title,
-        created: Date.now(),
-        expires: Date.now() + (24 * 60 * 60 * 1000) // 24 часа
-      });
+        title
+      };
       
-      log('Token created successfully', { 
-        token_preview: token.substr(0, 8) + '...', 
+      const token = createStatelessToken(tokenData);
+      
+      log('Stateless token created successfully', { 
+        token_preview: token.substr(0, 16) + '...', 
         scope_id: result.data.scope_id,
         expires_at: new Date(Date.now() + 86400000).toISOString()
       });
@@ -77,7 +75,8 @@ export default async function handler(req, res) {
         scope_id: result.data.scope_id,
         expires_in: 86400,
         created_at: new Date().toISOString(),
-        signature_scheme: 'new'
+        signature_scheme: 'new',
+        token_type: 'stateless'
       });
     }
     

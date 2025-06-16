@@ -2,7 +2,7 @@
 
 > Полнофункциональный прокси-сервис для работы с AmoCRM Chat API через простой REST интерфейс
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/your-username/amocrm-proxy)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/maslennikov-ig/amarina)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## 📋 Содержание
@@ -102,6 +102,22 @@ Requests             Token Management    Requirements
 - **Token Store** - In-memory хранилище (production: Redis)
 - **HMAC Engine** - Автоматическая подпись запросов
 - **Logger** - Детальное логирование операций
+
+### Логика использования endpoints
+
+**🔑 Важно понимать разницу между `channel_id` и `scope_id`:**
+
+- **`channel_id`** - используется для операций с каналом:
+  - `POST /v2/origin/custom/{channel_id}/connect` - подключение канала
+  - `DELETE /v2/origin/custom/{channel_id}/disconnect` - отключение канала  
+  - `POST /v2/origin/custom/{channel_id}/typing` - индикатор "печатает"
+
+- **`scope_id`** - используется для работы с сообщениями и чатами:
+  - `POST /v2/origin/custom/{scope_id}` - отправка сообщений
+  - `POST /v2/origin/custom/{scope_id}/chats` - создание чатов
+  - `GET /v2/origin/custom/{scope_id}/chats/{conversation_id}/history` - история
+
+**Формула:** `scope_id = {channel_id}_{account_id}` (получается после успешного connect)
 
 ## 🚀 Быстрый старт
 

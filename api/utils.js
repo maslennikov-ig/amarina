@@ -1,7 +1,44 @@
+// api/utils.js - Исправленная версия с JWT-подобными токенами
+
 const crypto = require('crypto');
 
-// Глобальное хранилище токенов
-global.tokenStore = global.tokenStore || new Map();
+// Создание stateless токена (содержит всю информацию)
+function createStatelessToken(data) {
+  const payload = {
+    ...data,
+    created: Date.now(),
+    expires: Date.now() + (24 * 60 * 60 * 1000) // 24 часа
+  };
+  
+  // Простое шифрование (в продакшене используйте JWT)
+  const payloadString = JSON.stringify(payload);
+  const cipher = crypto.createCipher('aes-256-cbc', 'amocrm-proxy-secret-key');
+  let encrypted = cipher.update(payloadString, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  
+  return Buffer.from(encrypted).toString('base64');
+}
+
+// Расшифровка stateless токена
+function decodeStatelessToken(token) {
+  try {
+    const encrypted = Buffer.from(token, 'base64').toString('utf8');
+    const decipher = crypto.createDecipher('aes-256-cbc', 'amocrm-proxy-secret-key');
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    
+    const payload = JSON.parse(decrypted);
+    
+    // Проверяем срок действия
+    if (payload.expires < Date.now()) {
+      return { valid: false, error: 'Token expired. Please get a new token.' };
+    }
+    
+    return { valid: true, data: payload };
+  } catch (error) {
+    return { valid: false, error: 'Invalid token format' };
+  }
+}
 
 // Создание HMAC подписи (новая схема AmoCRM)
 function createHmacSignature(message, secret) {
@@ -19,7 +56,6 @@ function createAmoCrmHeaders(body, secret, path, method = 'POST') {
   const contentType = 'application/json';
   const contentMd5 = crypto.createHash('md5').update(bodyString).digest('hex').toLowerCase();
   
-  // Формируем строку для подписи согласно новой схеме AmoCRM
   const stringToSign = [
     method.toUpperCase(),
     contentMd5,
@@ -38,24 +74,13 @@ function createAmoCrmHeaders(body, secret, path, method = 'POST') {
   };
 }
 
-// Валидация токена
+// Валидация токена (stateless)
 function validateToken(token) {
   if (!token) {
     return { valid: false, error: 'Token is required' };
   }
   
-  const tokenData = global.tokenStore.get(token);
-  
-  if (!tokenData) {
-    return { valid: false, error: 'Invalid token' };
-  }
-  
-  if (tokenData.expires < Date.now()) {
-    global.tokenStore.delete(token);
-    return { valid: false, error: 'Token expired. Please get a new token.' };
-  }
-  
-  return { valid: true, data: tokenData };
+  return decodeStatelessToken(token);
 }
 
 // Обработка ответа от AmoCRM
@@ -81,8 +106,9 @@ function log(action, data) {
 }
 
 module.exports = {
-  createAmoCrmHeaders,
+  createStatelessToken,
   validateToken,
+  createAmoCrmHeaders,
   handleAmoCrmResponse,
   log
 };

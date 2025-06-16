@@ -26,7 +26,7 @@ export default async function handler(req, res) {
       account_id: tokenData.account_id
     };
     
-    const path = `/v2/origin/custom/${tokenData.scope_id}/disconnect`;
+    const path = `/v2/origin/custom/${tokenData.channel_id}/disconnect`;
     const headers = createAmoCrmHeaders(requestBody, tokenData.secret_key, path);
     
     log('Disconnecting channel', { 
@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     });
     
     const response = await fetch(`https://amojo.amocrm.ru${path}`, {
-      method: 'POST',
+      method: 'DELETE',
       headers,
       body: JSON.stringify(requestBody)
     });
